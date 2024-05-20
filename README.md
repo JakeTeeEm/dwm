@@ -5,7 +5,7 @@ This is just my personal DWM build.  It is a little customized and has a few pat
 Clone the repo and cd
 ```bash
 $ git clone https://github.com/JakeTeeEm/dwm.git
-$ cd ~/dwm/suckless/dwm/
+$ cd /dwm/suckless/dwm/
 ```
 Build package
 ```bash
