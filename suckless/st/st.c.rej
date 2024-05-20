@@ -1,0 +1,281 @@
+--- st.c
++++ st.c
+@@ -113,12 +117,21 @@ typedef struct {
+ 	int alt;
+ } Selection;
+ 
++/* Screen lines */
++typedef struct {
++	Line* buffer;  /* ring buffer */
++	int size;      /* size of buffer */
++	int cur;       /* start of active screen */
++	int off;       /* scrollback line offset */
++	TCursor sc;    /* saved cursor */
++} LineBuffer;
++
+ /* Internal representation of the screen */
+ typedef struct {
+ 	int row;      /* nb row */
+ 	int col;      /* nb col */
+-	Line *line;   /* screen */
+-	Line *alt;    /* alternate screen */
++	LineBuffer screen[2]; /* screen and alternate screen */
++	int linelen;  /* allocated line length */
+ 	int *dirty;   /* dirtyness of lines */
+ 	TCursor c;    /* cursor */
+ 	int ocx;      /* old cursor col */
+@@ -421,11 +436,12 @@ int
+ tlinelen(int y)
+ {
+ 	int i = term.col;
++	Line line = TLINE(y);
+ 
+-	if (term.line[y][i - 1].mode & ATTR_WRAP)
++	if (line[i - 1].mode & ATTR_WRAP)
+ 		return i;
+ 
+-	while (i > 0 && term.line[y][i - 1].u == ' ')
++	while (i > 0 && line[i - 1].u == ' ')
+ 		--i;
+ 
+ 	return i;
+@@ -1121,15 +1183,29 @@ tscrolldown(int orig, int n)
+ 
+ 	LIMIT(n, 0, term.bot-orig+1);
+ 
+-	tsetdirt(orig, term.bot-n);
+-	tclearregion(0, term.bot-n+1, term.col-1, term.bot);
++	/* Ensure that lines are allocated */
++	for (i = -n; i < 0; i++) {
++		TLINE(i) = ensureline(TLINE(i));
++	}
+ 
+-	for (i = term.bot; i >= orig+n; i--) {
+-		temp = term.line[i];
+-		term.line[i] = term.line[i-n];
+-		term.line[i-n] = temp;
++	/* Shift non-scrolling areas in ring buffer */
++	for (i = term.bot+1; i < term.row; i++) {
++		temp = TLINE(i);
++		TLINE(i) = TLINE(i-n);
++		TLINE(i-n) = temp;
++	}
++	for (i = 0; i < orig; i++) {
++		temp = TLINE(i);
++		TLINE(i) = TLINE(i-n);
++		TLINE(i-n) = temp;
+ 	}
+ 
++	/* Scroll buffer */
++	TSCREEN.cur = (TSCREEN.cur + TSCREEN.size - n) % TSCREEN.size;
++	/* Clear lines that have entered the view */
++	tclearregion(0, orig, term.linelen-1, orig+n-1);
++	/* Redraw portion of the screen that has scrolled */
++	tsetdirt(orig+n-1, term.bot);
+ 	selscroll(orig, n);
+ }
+ 
+@@ -1141,15 +1217,29 @@ tscrollup(int orig, int n)
+ 
+ 	LIMIT(n, 0, term.bot-orig+1);
+ 
+-	tclearregion(0, orig, term.col-1, orig+n-1);
+-	tsetdirt(orig+n, term.bot);
++	/* Ensure that lines are allocated */
++	for (i = term.row; i < term.row + n; i++) {
++		TLINE(i) = ensureline(TLINE(i));
++	}
+ 
+-	for (i = orig; i <= term.bot-n; i++) {
+-		temp = term.line[i];
+-		term.line[i] = term.line[i+n];
+-		term.line[i+n] = temp;
++	/* Shift non-scrolling areas in ring buffer */
++	for (i = orig-1; i >= 0; i--) {
++		temp = TLINE(i);
++		TLINE(i) = TLINE(i+n);
++		TLINE(i+n) = temp;
++	}
++	for (i = term.row-1; i >term.bot; i--) {
++		temp = TLINE(i);
++		TLINE(i) = TLINE(i+n);
++		TLINE(i+n) = temp;
+ 	}
+ 
++	/* Scroll buffer */
++	TSCREEN.cur = (TSCREEN.cur + n) % TSCREEN.size;
++	/* Clear lines that have entered the view */
++	tclearregion(0, term.bot-n+1, term.linelen-1, term.bot);
++	/* Redraw portion of the screen that has scrolled */
++	tsetdirt(orig, term.bot-n+1);
+ 	selscroll(orig, -n);
+ }
+ 
+@@ -2553,7 +2646,7 @@ check_control_code:
+ 
+ 	if (term.c.x+width > term.col) {
+ 		tnewline(1);
+-		gp = &term.line[term.c.y][term.c.x];
++		gp = &TLINE(term.c.y)[term.c.x];
+ 	}
+ 
+ 	tsetchar(u, &term.c.attr, term.c.x, term.c.y);
+@@ -2615,56 +2713,85 @@ twrite(const char *buf, int buflen, int show_ctrl)
+ }
+ 
+ void
+-tresize(int col, int row)
++clearline(Line line, Glyph g, int x, int xend)
+ {
+ 	int i;
++	g.mode = 0;
++	g.u = ' ';
++	for (i = x; i < xend; ++i) {
++		line[i] = g;
++	}
++}
++
++Line
++ensureline(Line line)
++{
++	if (!line) {
++		line = xmalloc(term.linelen * sizeof(Glyph));
++	}
++	return line;
++}
++
++void
++tresize(int col, int row)
++{
++	int i, j;
+ 	int minrow = MIN(row, term.row);
+ 	int mincol = MIN(col, term.col);
++	int linelen = MAX(col, term.linelen);
+ 	int *bp;
+-	TCursor c;
+ 
+-	if (col < 1 || row < 1) {
++	if (col < 1 || row < 1 || row > HISTSIZE) {
+ 		fprintf(stderr,
+ 		        "tresize: error resizing to %dx%d\n", col, row);
+ 		return;
+ 	}
+ 
+-	/*
+-	 * slide screen to keep cursor where we expect it -
+-	 * tscrollup would work here, but we can optimize to
+-	 * memmove because we're freeing the earlier lines
+-	 */
+-	for (i = 0; i <= term.c.y - row; i++) {
+-		free(term.line[i]);
+-		free(term.alt[i]);
++	/* Shift buffer to keep the cursor where we expect it */
++	if (row <= term.c.y) {
++		term.screen[0].cur = (term.screen[0].cur - row + term.c.y + 1) % term.screen[0].size;
++	}
++
++	/* Resize and clear line buffers as needed */
++	if (linelen > term.linelen) {
++		for (i = 0; i < term.screen[0].size; ++i) {
++			if (term.screen[0].buffer[i]) {
++				term.screen[0].buffer[i] = xrealloc(term.screen[0].buffer[i], linelen * sizeof(Glyph));
++				clearline(term.screen[0].buffer[i], term.c.attr, term.linelen, linelen);
++			}
++		}
++		for (i = 0; i < minrow; ++i) {
++			term.screen[1].buffer[i] = xrealloc(term.screen[1].buffer[i], linelen * sizeof(Glyph));
++			clearline(term.screen[1].buffer[i], term.c.attr, term.linelen, linelen);
++		}
+ 	}
+-	/* ensure that both src and dst are not NULL */
+-	if (i > 0) {
+-		memmove(term.line, term.line + i, row * sizeof(Line));
+-		memmove(term.alt, term.alt + i, row * sizeof(Line));
++	/* Allocate all visible lines for regular line buffer */
++	for (j = term.screen[0].cur, i = 0; i < row; ++i, j = (j + 1) % term.screen[0].size)
++	{
++		if (!term.screen[0].buffer[j]) {
++			term.screen[0].buffer[j] = xmalloc(linelen * sizeof(Glyph));
++		}
++		if (i >= term.row) {
++			clearline(term.screen[0].buffer[j], term.c.attr, 0, linelen);
++		}
+ 	}
+-	for (i += row; i < term.row; i++) {
+-		free(term.line[i]);
+-		free(term.alt[i]);
++	/* Resize alt screen */
++	term.screen[1].cur = 0;
++	term.screen[1].size = row;
++	for (i = row; i < term.row; ++i) {
++		free(term.screen[1].buffer[i]);
++	}
++	term.screen[1].buffer = xrealloc(term.screen[1].buffer, row * sizeof(Line));
++	for (i = term.row; i < row; ++i) {
++		term.screen[1].buffer[i] = xmalloc(linelen * sizeof(Glyph));
++		clearline(term.screen[1].buffer[i], term.c.attr, 0, linelen);
+ 	}
+ 
+ 	/* resize to new height */
+-	term.line = xrealloc(term.line, row * sizeof(Line));
+-	term.alt  = xrealloc(term.alt,  row * sizeof(Line));
+ 	term.dirty = xrealloc(term.dirty, row * sizeof(*term.dirty));
+ 	term.tabs = xrealloc(term.tabs, col * sizeof(*term.tabs));
+ 
+-	/* resize each row to new width, zero-pad if needed */
+-	for (i = 0; i < minrow; i++) {
+-		term.line[i] = xrealloc(term.line[i], col * sizeof(Glyph));
+-		term.alt[i]  = xrealloc(term.alt[i],  col * sizeof(Glyph));
+-	}
+-
+-	/* allocate any new rows */
+-	for (/* i = minrow */; i < row; i++) {
+-		term.line[i] = xmalloc(col * sizeof(Glyph));
+-		term.alt[i] = xmalloc(col * sizeof(Glyph));
+-	}
++	/* fix tabstops */
+ 	if (col > term.col) {
+ 		bp = term.tabs + term.col;
+ 
+@@ -2695,14 +2812,15 @@ resettitle(void)
+ void
+ drawregion(int x1, int y1, int x2, int y2)
+ {
+-	int y;
++	int y, L;
+ 
++	L = TLINEOFFSET(y1);
+ 	for (y = y1; y < y2; y++) {
+-		if (!term.dirty[y])
+-			continue;
+-
+-		term.dirty[y] = 0;
+-		xdrawline(term.line[y], x1, y, x2);
++		if (term.dirty[y]) {
++			term.dirty[y] = 0;
++			xdrawline(TSCREEN.buffer[L], x1, y, x2);
++		}
++		L = (L + 1) % TSCREEN.size;
+ 	}
+ }
+ 
+@@ -2717,14 +2835,15 @@ draw(void)
+ 	/* adjust cursor position */
+ 	LIMIT(term.ocx, 0, term.col-1);
+ 	LIMIT(term.ocy, 0, term.row-1);
+-	if (term.line[term.ocy][term.ocx].mode & ATTR_WDUMMY)
++	if (TLINE(term.ocy)[term.ocx].mode & ATTR_WDUMMY)
+ 		term.ocx--;
+-	if (term.line[term.c.y][cx].mode & ATTR_WDUMMY)
++	if (TLINE(term.c.y)[cx].mode & ATTR_WDUMMY)
+ 		cx--;
+ 
+ 	drawregion(0, 0, term.col, term.row);
+-	xdrawcursor(cx, term.c.y, term.line[term.c.y][cx],
+-			term.ocx, term.ocy, term.line[term.ocy][term.ocx]);
++	if (TSCREEN.off == 0)
++		xdrawcursor(cx, term.c.y, TLINE(term.c.y)[cx],
++				term.ocx, term.ocy, TLINE(term.ocy)[term.ocx]);
+ 	term.ocx = cx;
+ 	term.ocy = term.c.y;
+ 	xfinishdraw();
