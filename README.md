@@ -36,6 +36,10 @@ CD back to main folder
 ```bash
 $ cd ../..
 ```
+Download Picom
+```bash
+$ sudo apt install picom
+```
 
 ### Launching
 I am on Debian 12 built with KDE Plasma at the moment and so I launch off of KDE's window manager.  If you would like you could configure a `.xinitrc` file, instead if you're on **Arch** or just in general.  (Honestly, I don't recommend booting off of a window manager because it can mess up settings through conflicts.  Thinking of switching, myself).
@@ -69,3 +73,5 @@ $ sudo mv dwm.desktop /usr/share/xsessions/
 #### dmenu
 - caseinsensitive
 #### slstatus
+#### picom
+- shadows
