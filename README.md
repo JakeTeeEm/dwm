@@ -31,7 +31,6 @@ $ cd /dwm/suckless/slstatus/
 $ make
 $ sudo make clean install
 ```
-
 CD back to main folder
 ```bash
 $ cd ../..
@@ -40,9 +39,14 @@ Download Picom
 ```bash
 $ sudo apt install picom
 ```
+Copy `autostart.sh` into `.dwm` folder (default folder for autostart patch)
+```bash
+$ cp autostart.sh ~/.dwm/
+```
+
 
 ### Launching
-I am on Debian 12 built with KDE Plasma at the moment and so I launch off of KDE's window manager.  If you would like you could configure a `.xinitrc` file, instead if you're on **Arch** or just in general.  (Honestly, I don't recommend booting off of a window manager because it can mess up settings through conflicts.  Thinking of switching, myself).
+I am on Debian 12 built with KDE Plasma at the moment and so I launch off of KDE's window manager.  If you would like you could configure a `.xinitrc` file instead if you're on **Arch** or just in general.  (Honestly, I don't recommend booting off of a window manager because it can mess up settings through conflicts.  Thinking of switching, myself).
 
 #### Debian-based WITH Window Manager
 Copy `dwm.desktop` to `xsessions` folder
