@@ -31,6 +31,7 @@ $ cd /dwm/suckless/slstatus/
 $ make
 $ sudo make clean install
 ```
+
 CD back to main folder
 ```bash
 $ cd ../..
@@ -39,9 +40,27 @@ Download Picom
 ```bash
 $ sudo apt install picom
 ```
-Copy `autostart.sh` into `.dwm` folder (default folder for autostart patch)
+Move/Copy picom config to `.config`
 ```bash
+# Moving
+$ mv picom.config ~/.config/
+# Copy
+$ cp picom.config ~/.config/
+```    
+Move/Copy `autostart.sh` into `.dwm` folder (default folder for autostart patch)
+```bash
+$ mkdir ~/.dwm/
+# Moving
+$ mv autostart.sh ~/.dwm/
+# Copy
 $ cp autostart.sh ~/.dwm/
+```
+(You could make a soft link instead if you wanted.)
+```bash
+# Instead of "cp autostart.sh ~/.dwm/"
+$ ln -s autostart.sh ~/.dwm
+# Instead of "cp picom.config ~/.config/"
+$ ln -s autostart.sh ~/.dwm/
 ```
 
 
