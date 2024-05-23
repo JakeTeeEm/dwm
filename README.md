@@ -84,14 +84,14 @@ $ sudo mv dwm.desktop /usr/share/xsessions/
 
 ### Patches
 #### dwm
-- alpha
+- systray
 - alwayscentre
 - uselessgap
 - autostart
-- (attachbelow is in the patches folder but is unused)
+- fib
 #### st
 - alpha
-- scrollback
+- scrollback (Shift + pgup/pgdown && Shift + MouseUp/MouseDown)
 - (additional scrollback patches are in folder but are unused)
 #### dmenu
 - caseinsensitive
