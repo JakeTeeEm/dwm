@@ -2,8 +2,13 @@
 
 /* appearance */
 static const unsigned int borderpx  = 1;        /* border pixel of windows */
-static const unsigned int gappx     = 12;        /* gaps between windows */
+static const unsigned int gappx     = 6;        /* gaps between windows */
 static const unsigned int snap      = 32;       /* snap pixel */
+static const unsigned int systraypinning = 0;   /* 0: sloppy systray follows selected monitor, >0: pin systray to monitor X */
+static const unsigned int systrayonleft = 0;    /* 0: systray in the right corner, >0: systray on left of status text */
+static const unsigned int systrayspacing = 2;   /* systray spacing */
+static const int systraypinningfailfirst = 1;   /* 1: if pinning fails, display systray on the first monitor, False: display systray on the last monitor*/
+static const int showsystray        = 1;        /* 0 means no systray */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 static const char *fonts[]          = { "monospace:size=10" };
@@ -20,15 +25,6 @@ static const char *colors[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray4, col_black, col_black },
 	[SchemeSel]  = { col_gray4, col_witch,  col_witch  },
-};
-// Alpha patch
-static const unsigned int baralpha = 0xd0;
-static const unsigned int borderalpha = OPAQUE;
-
-static const unsigned int alphas[][3]      = {
-    /*               fg      bg        border*/
-    [SchemeNorm] = { OPAQUE, baralpha, borderalpha },
-    [SchemeSel]  = { OPAQUE, baralpha, borderalpha },
 };
 
 /* tagging */
@@ -50,16 +46,18 @@ static const int nmaster     = 1;    /* number of clients in master area */
 static const int resizehints = 0;    /* 1 means respect size hints in tiled resizals */
 static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
 
+#include "fibonacci.c"
 static const Layout layouts[] = {
 	/* symbol     arrange function */
 	{ "[]=",      tile },    /* first entry is default */
 	{ "><>",      NULL },    /* no layout function means floating behavior */
 	{ "[M]",      monocle },
+ 	{ "[@]",      spiral },
+ 	{ "[\\]",      dwindle },
 };
 
 /* key definitions */
 #define MODKEY Mod4Mask
-#define AltMask Mod1Mask  // this is a custom definition
 #define TAGKEYS(KEY,TAG) \
 	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
 	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
@@ -90,17 +88,18 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
 	{ MODKEY,                       XK_Return, zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },  // idk what this does
-	{ MODKEY|ShiftMask,		XK_c,	   killclient,	   {0} },  // Original killclient shortcut
-	{ AltMask,             		XK_F4,     killclient,     {0} },  // Alternative killclient shortcut
+	{ MODKEY|ShiftMask,				XK_c,	   killclient,	   {0} },  // Original killclient shortcut
 	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
 	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
+	{ MODKEY,                       XK_r,      setlayout,      {.v = &layouts[3]} },
+	{ MODKEY|ShiftMask,             XK_r,      setlayout,      {.v = &layouts[4]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
 	{ MODKEY,                       XK_Left,  focusmon,       {.i = -1 } },  // Focus left monitor from current   |   Original:  MODKEY, XK_comma
-	{ MODKEY,                       XK_Right, focusmon,       {.i = +1 } },  // Focus right monitor from current   |   Original:  MODKEY, XK_perio
+	{ MODKEY,                       XK_Right, focusmon,       {.i = +1 } },  // Focus right monitor from current   |   Original:  MODKEY, XK_period
 	{ MODKEY|ShiftMask,             XK_Left,  tagmon,         {.i = -1 } },  // Move program left one monitor   |   Original:  MODKEY|ShiftMask, XK_comma
 	{ MODKEY|ShiftMask,             XK_Right, tagmon,         {.i = +1 } },  // Move program right one monitor   |   Original:  MODKEY|ShiftMask, XK_period
 	TAGKEYS(                        XK_1,                      0)
