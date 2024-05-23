@@ -7,7 +7,7 @@ Clone the repo and cd
 $ git clone https://github.com/JakeTeeEm/dwm.git
 $ cd /dwm/suckless/dwm/
 ```
-Build package
+#### Build package
 If you ever see something `make: nothing to be done`, then delete `config.h`
 ```bash
 $ rm config.h
