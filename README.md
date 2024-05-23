@@ -59,9 +59,9 @@ $ cp autostart.sh ~/.dwm/
 (You could make a soft link instead if you wanted.)
 ```bash
 # Instead of "cp autostart.sh ~/.dwm/"
-$ ln -s autostart.sh ~/.dwm
-# Instead of "cp picom.config ~/.config/"
 $ ln -s autostart.sh ~/.dwm/
+# Instead of "cp picom.config ~/.config/"
+$ ln -s picom.config ~/.config/
 ```
 
 
