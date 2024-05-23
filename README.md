@@ -18,20 +18,17 @@ $ sudo make clean install
 ```
 Repeat for **st**, **dmenu** and **slstatus**
 ```bash
-$ cd ..
-$ cd /dwm/suckless/st/
+$ cd ../st/
 $ make
 $ sudo make clean install
 ```
 ```bash
-$ cd ..
-$ cd /dwm/suckless/dmenu/
+$ cd ../dmenu/
 $ make
 $ sudo make clean install
 ```
 ```bash
-$ cd ..
-$ cd /dwm/suckless/slstatus/
+$ cd ../slstatus/
 $ make
 $ sudo make clean install
 ```
