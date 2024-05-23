@@ -9,7 +9,7 @@
 picom &
 
 # Set background image
-feh --bg-fill ~/Akko/Background/wallhaven-zm9x9y.png
+feh --bg-fill ~/dwm/wallhaven-zm9x9y.png
 
 # Start slstatus
 slstatus &
